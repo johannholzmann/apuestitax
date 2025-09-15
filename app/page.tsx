@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 
+
+
 export default function SureBetCalculator() {
   const [cuota1, setCuota1] = useState<number>(2.75)
   const [monto1, setMonto1] = useState<number>(18000)
