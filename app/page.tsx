@@ -150,7 +150,7 @@ export default function SureBetCalculator() {
         <Card>
           <CardHeader>
             <CardTitle>Resultados</CardTitle>
-            <CardDescription>Análisis de tu combinación de apuestas</CardDescription>
+            <CardDescription>Análisis de tu combinación de apuestas, maximizando ganancias.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2">
@@ -176,7 +176,7 @@ export default function SureBetCalculator() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card className="border-blue-200 dark:border-blue-800">
                 <CardHeader className="">
-                  <CardTitle className="text-lg text-blue-700 dark:text-blue-300">Máxima ganancia si sale Cuota 1</CardTitle>
+                  <CardTitle className="text-lg text-blue-700 dark:text-blue-300">Sale cuota 1</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
                   <div>
@@ -204,7 +204,7 @@ export default function SureBetCalculator() {
 
               <Card className="border-green-200 dark:border-green-800">
                 <CardHeader className="">
-                  <CardTitle className="text-lg text-blue-700 dark:text-blue-300">Máxima ganancia si sale Cuota 2</CardTitle>
+                  <CardTitle className="text-lg text-blue-700 dark:text-blue-300">Sale Cuota 2</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
                   <div>
@@ -232,7 +232,7 @@ export default function SureBetCalculator() {
 
               <Card className="border-purple-200 dark:border-purple-800">
                 <CardHeader className="">
-                  <CardTitle className="text-lg text-purple-700 dark:text-purple-300">Maximiza ganancia si sale Sure Bet</CardTitle>
+                  <CardTitle className="text-lg text-purple-700 dark:text-purple-300"> Sure Bet</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
                   <div className="text-sm text-muted-foreground">Debes apostar en Cuota 2:</div>
