@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
 import { Check, Copy } from "lucide-react"
 
@@ -472,13 +473,26 @@ export default function SureBetCalculator() {
     <main className="min-h-screen bg-[#f6f7f2] px-3 py-4 text-slate-950 sm:px-5 sm:py-6">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
         <header className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-slate-500">
-              ApuestitaX
-            </p>
-            <h1 className="text-2xl font-semibold leading-tight text-slate-950 sm:text-3xl">
-              Apuesta asegurada
-            </h1>
+          <div className="flex items-start gap-3">
+            <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <Image
+                alt="ApuestitaX"
+                className="h-full w-full object-cover"
+                height={44}
+                quality={100}
+                priority
+                src="/icon.png"
+                width={44}
+              />
+            </div>
+            <div>
+              <p className="text-[0.72rem] font-medium uppercase tracking-[0.18em] text-slate-500">
+                ApuestitaX
+              </p>
+              <h1 className="text-2xl font-semibold leading-tight text-slate-950 sm:text-3xl">
+                Apuesta asegurada
+              </h1>
+            </div>
           </div>
           <button
             className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-50"
