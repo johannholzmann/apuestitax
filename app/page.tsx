@@ -92,6 +92,42 @@ function parsePlatformValue(
   }
 }
 
+function getInitialFormState() {
+  if (typeof window === "undefined") {
+    return {
+      cuota1: DEFAULT_VALUES.cuota1,
+      monto1: DEFAULT_VALUES.monto1,
+      cuota2: DEFAULT_VALUES.cuota2,
+      plataforma1Mode: DEFAULT_VALUES.plataforma1 as PlatformMode,
+      plataforma1Custom: "",
+      plataforma2Mode: DEFAULT_VALUES.plataforma2 as PlatformMode,
+      plataforma2Custom: "",
+    }
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  const platform1 = parsePlatformValue(
+    params.get("plataforma1"),
+    params.get("plataforma1Custom"),
+    DEFAULT_VALUES.plataforma1 as PlatformMode
+  )
+  const platform2 = parsePlatformValue(
+    params.get("plataforma2"),
+    params.get("plataforma2Custom"),
+    DEFAULT_VALUES.plataforma2 as PlatformMode
+  )
+
+  return {
+    cuota1: toInputValue(params.get("cuota1"), DEFAULT_VALUES.cuota1),
+    monto1: toInputValue(params.get("monto1"), DEFAULT_VALUES.monto1),
+    cuota2: toInputValue(params.get("cuota2"), DEFAULT_VALUES.cuota2),
+    plataforma1Mode: platform1.mode,
+    plataforma1Custom: platform1.custom,
+    plataforma2Mode: platform2.mode,
+    plataforma2Custom: platform2.custom,
+  }
+}
+
 function getPlatformLabel(mode: PlatformMode, custom: string) {
   return mode === "otra" ? custom || "Otra" : mode
 }
@@ -268,7 +304,7 @@ function PlatformBadge({
   compact?: boolean
 }) {
   const theme = getPlatformTheme(mode)
-  const label = getPlatformLabel(mode, custom)
+  // const label = getPlatformLabel(mode, custom)
 
   return (
     <span
@@ -277,7 +313,7 @@ function PlatformBadge({
       }`}
     >
       <PlatformMark className="h-3.5 w-auto shrink-0" mode={mode} />
-      <span className={`max-w-full truncate font-semibold ${theme.labelClassName}`}>{label}</span>
+      {/* <span className={`max-w-full truncate font-semibold ${theme.labelClassName}`}>{label}</span> */}
       <span className={`shrink-0 ${theme.oddsClassName}`}>{formatOdds(odds)}</span>
     </span>
   )
@@ -285,21 +321,17 @@ function PlatformBadge({
 
 function PlatformStat({
   mode,
-  custom,
   odds,
 }: {
   mode: PlatformMode
-  custom: string
   odds: number
 }) {
   const theme = getPlatformTheme(mode)
-  const label = getPlatformLabel(mode, custom)
 
   return (
     <div className="min-w-0 rounded-md bg-slate-100 px-2 py-1.5">
       <div className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[0.64rem] font-medium ${theme.pillClassName}`}>
         <PlatformMark className="h-3 w-auto shrink-0" mode={mode} />
-        <span className={`truncate font-semibold ${theme.labelClassName}`}>{label}</span>
       </div>
       <p className="mt-1 text-sm font-semibold leading-tight text-slate-950">{formatOdds(odds)}</p>
     </div>
@@ -307,44 +339,19 @@ function PlatformStat({
 }
 
 export default function SureBetCalculator() {
-  const [cuota1, setCuota1] = useState(DEFAULT_VALUES.cuota1)
-  const [monto1, setMonto1] = useState(DEFAULT_VALUES.monto1)
-  const [cuota2, setCuota2] = useState(DEFAULT_VALUES.cuota2)
+  const initialFormState = getInitialFormState()
+  const [cuota1, setCuota1] = useState(initialFormState.cuota1)
+  const [monto1, setMonto1] = useState(initialFormState.monto1)
+  const [cuota2, setCuota2] = useState(initialFormState.cuota2)
   const [plataforma1Mode, setPlataforma1Mode] = useState<PlatformMode>(
-    DEFAULT_VALUES.plataforma1 as PlatformMode
+    initialFormState.plataforma1Mode
   )
-  const [plataforma1Custom, setPlataforma1Custom] = useState("")
+  const [plataforma1Custom, setPlataforma1Custom] = useState(initialFormState.plataforma1Custom)
   const [plataforma2Mode, setPlataforma2Mode] = useState<PlatformMode>(
-    DEFAULT_VALUES.plataforma2 as PlatformMode
+    initialFormState.plataforma2Mode
   )
-  const [plataforma2Custom, setPlataforma2Custom] = useState("")
-  const [hasHydratedUrl, setHasHydratedUrl] = useState(false)
+  const [plataforma2Custom, setPlataforma2Custom] = useState(initialFormState.plataforma2Custom)
   const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-
-    setCuota1(toInputValue(params.get("cuota1"), DEFAULT_VALUES.cuota1))
-    setMonto1(toInputValue(params.get("monto1"), DEFAULT_VALUES.monto1))
-    setCuota2(toInputValue(params.get("cuota2"), DEFAULT_VALUES.cuota2))
-
-    const platform1 = parsePlatformValue(
-      params.get("plataforma1"),
-      params.get("plataforma1Custom"),
-      DEFAULT_VALUES.plataforma1 as PlatformMode
-    )
-    const platform2 = parsePlatformValue(
-      params.get("plataforma2"),
-      params.get("plataforma2Custom"),
-      DEFAULT_VALUES.plataforma2 as PlatformMode
-    )
-
-    setPlataforma1Mode(platform1.mode)
-    setPlataforma1Custom(platform1.custom)
-    setPlataforma2Mode(platform2.mode)
-    setPlataforma2Custom(platform2.custom)
-    setHasHydratedUrl(true)
-  }, [])
 
   const calculated = useMemo(() => {
     const odds1 = parsePositiveNumber(cuota1)
@@ -409,9 +416,6 @@ export default function SureBetCalculator() {
     }
   }, [cuota1, monto1, cuota2])
 
-  const platform1Label = getPlatformLabel(plataforma1Mode, plataforma1Custom)
-  const platform2Label = getPlatformLabel(plataforma2Mode, plataforma2Custom)
-
   const shareUrl = useMemo(() => {
     const params = new URLSearchParams({
       cuota1: cuota1.trim() || DEFAULT_VALUES.cuota1,
@@ -437,13 +441,9 @@ export default function SureBetCalculator() {
   }, [cuota1, monto1, cuota2, plataforma1Mode, plataforma1Custom, plataforma2Mode, plataforma2Custom])
 
   useEffect(() => {
-    if (!hasHydratedUrl) {
-      return
-    }
-
     const nextUrl = new URL(shareUrl)
     window.history.replaceState(null, "", `${nextUrl.pathname}${nextUrl.search}`)
-  }, [hasHydratedUrl, shareUrl])
+  }, [shareUrl])
 
   async function copyShareUrl() {
     let didCopy = false
@@ -560,8 +560,8 @@ export default function SureBetCalculator() {
             </CardHeader>
             <CardContent className="space-y-3 px-3 sm:px-4">
               <div className="grid grid-cols-2 gap-2">
-                <PlatformStat mode={plataforma1Mode} custom={plataforma1Custom} odds={calculated.odds1} />
-                <PlatformStat mode={plataforma2Mode} custom={plataforma2Custom} odds={calculated.odds2} />
+                <PlatformStat mode={plataforma1Mode} odds={calculated.odds1} />
+                <PlatformStat mode={plataforma2Mode} odds={calculated.odds2} />
                 <Metric label="Monto 1" value={formatMoney(calculated.stake1)} />
                 <Metric
                   label="Estado"
@@ -586,10 +586,8 @@ export default function SureBetCalculator() {
                 odds1={calculated.odds1}
                 odds2={calculated.odds2}
                 platform1Mode={plataforma1Mode}
-                platform1Label={platform1Label}
                 platform1Custom={plataforma1Custom}
                 platform2Mode={plataforma2Mode}
-                platform2Label={platform2Label}
                 platform2Custom={plataforma2Custom}
                 strategy={strategy}
               />
@@ -695,20 +693,16 @@ function StrategyCard({
   odds1,
   odds2,
   platform1Mode,
-  platform1Label,
   platform1Custom,
   platform2Mode,
-  platform2Label,
   platform2Custom,
   strategy,
 }: {
   odds1: number
   odds2: number
   platform1Mode: PlatformMode
-  platform1Label: string
   platform1Custom: string
   platform2Mode: PlatformMode
-  platform2Label: string
   platform2Custom: string
   strategy: Strategy
 }) {
@@ -719,25 +713,19 @@ function StrategyCard({
         <p className="text-xs leading-snug text-slate-500">{strategy.description}</p>
       </CardHeader>
       <CardContent className="space-y-2 px-3 sm:px-4">
-        <div className="flex flex-wrap gap-1.5 text-[0.7rem] font-medium text-slate-500">
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1">
-            <strong className="font-semibold text-slate-700">{platform1Label}</strong>
-            <span className="text-slate-500">{formatOdds(odds1)}</span>
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1">
-            <strong className="font-semibold text-slate-700">{platform2Label}</strong>
-            <span className="text-slate-500">{formatOdds(odds2)}</span>
-          </span>
+        <div className="flex flex-wrap gap-1.5">
+          <PlatformBadge mode={platform1Mode} custom={platform1Custom} odds={odds1} compact />
+          <PlatformBadge mode={platform2Mode} custom={platform2Custom} odds={odds2} compact />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <StrategyMetric label="Apuesta C2" value={formatMoney(strategy.stake2)} isStrong />
           <StrategyMetric
-            label="Gana C1"
+            label="Ganancia C1"
             value={formatMoney(strategy.profitIfBet1Wins)}
             valueClassName={getProfitClassName(strategy.profitIfBet1Wins)}
           />
           <StrategyMetric
-            label="Gana C2"
+            label="Ganancia C2"
             value={formatMoney(strategy.profitIfBet2Wins)}
             valueClassName={getProfitClassName(strategy.profitIfBet2Wins)}
           />
