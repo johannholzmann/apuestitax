@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
-import { Check, Copy } from "lucide-react"
+import { Check, Copy, ExternalLink } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,6 +35,10 @@ const DEFAULT_VALUES = {
   cuota2: "1.86",
   plataforma1: "bet365",
   plataforma2: "betano",
+  apuesta1: "",
+  apuesta1Url: "",
+  apuesta2: "",
+  apuesta2Url: "",
 }
 
 const moneyFormatter = new Intl.NumberFormat("es-AR", {
@@ -62,6 +66,10 @@ function toInputValue(value: string | null, fallback: string) {
   }
 
   return value.trim() || fallback
+}
+
+function toOptionalInputValue(value: string | null) {
+  return value?.trim() || ""
 }
 
 function parsePlatformValue(
@@ -98,6 +106,10 @@ function getInitialFormState() {
       cuota1: DEFAULT_VALUES.cuota1,
       monto1: DEFAULT_VALUES.monto1,
       cuota2: DEFAULT_VALUES.cuota2,
+      apuesta1: DEFAULT_VALUES.apuesta1,
+      apuesta1Url: DEFAULT_VALUES.apuesta1Url,
+      apuesta2: DEFAULT_VALUES.apuesta2,
+      apuesta2Url: DEFAULT_VALUES.apuesta2Url,
       plataforma1Mode: DEFAULT_VALUES.plataforma1 as PlatformMode,
       plataforma1Custom: "",
       plataforma2Mode: DEFAULT_VALUES.plataforma2 as PlatformMode,
@@ -121,15 +133,15 @@ function getInitialFormState() {
     cuota1: toInputValue(params.get("cuota1"), DEFAULT_VALUES.cuota1),
     monto1: toInputValue(params.get("monto1"), DEFAULT_VALUES.monto1),
     cuota2: toInputValue(params.get("cuota2"), DEFAULT_VALUES.cuota2),
+    apuesta1: toOptionalInputValue(params.get("apuesta1")),
+    apuesta1Url: toOptionalInputValue(params.get("apuesta1Url")),
+    apuesta2: toOptionalInputValue(params.get("apuesta2")),
+    apuesta2Url: toOptionalInputValue(params.get("apuesta2Url")),
     plataforma1Mode: platform1.mode,
     plataforma1Custom: platform1.custom,
     plataforma2Mode: platform2.mode,
     plataforma2Custom: platform2.custom,
   }
-}
-
-function getPlatformLabel(mode: PlatformMode, custom: string) {
-  return mode === "otra" ? custom || "Otra" : mode
 }
 
 function formatMoney(value: number) {
@@ -311,6 +323,7 @@ function PlatformBadge({
       className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1 text-[0.72rem] font-medium leading-none ${theme.pillClassName} ${
         compact ? "whitespace-nowrap" : ""
       }`}
+      title={custom || mode}
     >
       <PlatformMark className="h-3.5 w-auto shrink-0" mode={mode} />
       {/* <span className={`max-w-full truncate font-semibold ${theme.labelClassName}`}>{label}</span> */}
@@ -320,20 +333,44 @@ function PlatformBadge({
 }
 
 function PlatformStat({
+  betName,
+  betUrl,
+  label,
   mode,
   odds,
 }: {
+  betName: string
+  betUrl: string
+  label: string
   mode: PlatformMode
   odds: number
 }) {
   const theme = getPlatformTheme(mode)
+  const cleanBetName = betName.trim()
+  const cleanBetUrl = betUrl.trim()
 
   return (
     <div className="min-w-0 rounded-md bg-slate-100 px-2 py-1.5">
       <div className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[0.64rem] font-medium ${theme.pillClassName}`}>
         <PlatformMark className="h-3 w-auto shrink-0" mode={mode} />
       </div>
-      <p className="mt-1 text-sm font-semibold leading-tight text-slate-950">{formatOdds(odds)}</p>
+      <p className="mt-1 text-[0.64rem] uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-sm font-semibold leading-tight text-slate-950">
+        {cleanBetName || "Sin nombre"}
+      </p>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold leading-tight text-slate-950">{formatOdds(odds)}</p>
+        {cleanBetUrl ? (
+          <button
+            className="inline-flex shrink-0 items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-[0.72rem] font-semibold text-white shadow-sm transition hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+            type="button"
+            onClick={() => window.open(cleanBetUrl, "_blank", "noreferrer")}
+          >
+            <ExternalLink className="size-3.5" />
+            Abrir apuesta
+          </button>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -343,6 +380,10 @@ export default function SureBetCalculator() {
   const [cuota1, setCuota1] = useState(initialFormState.cuota1)
   const [monto1, setMonto1] = useState(initialFormState.monto1)
   const [cuota2, setCuota2] = useState(initialFormState.cuota2)
+  const [apuesta1, setApuesta1] = useState(initialFormState.apuesta1)
+  const [apuesta1Url, setApuesta1Url] = useState(initialFormState.apuesta1Url)
+  const [apuesta2, setApuesta2] = useState(initialFormState.apuesta2)
+  const [apuesta2Url, setApuesta2Url] = useState(initialFormState.apuesta2Url)
   const [plataforma1Mode, setPlataforma1Mode] = useState<PlatformMode>(
     initialFormState.plataforma1Mode
   )
@@ -425,6 +466,22 @@ export default function SureBetCalculator() {
       plataforma2: plataforma2Mode,
     })
 
+    if (apuesta1.trim()) {
+      params.set("apuesta1", apuesta1.trim())
+    }
+
+    if (apuesta1Url.trim()) {
+      params.set("apuesta1Url", apuesta1Url.trim())
+    }
+
+    if (apuesta2.trim()) {
+      params.set("apuesta2", apuesta2.trim())
+    }
+
+    if (apuesta2Url.trim()) {
+      params.set("apuesta2Url", apuesta2Url.trim())
+    }
+
     if (plataforma1Mode === "otra" && plataforma1Custom.trim()) {
       params.set("plataforma1Custom", plataforma1Custom.trim())
     }
@@ -438,7 +495,19 @@ export default function SureBetCalculator() {
     }
 
     return `${window.location.origin}${window.location.pathname}?${params.toString()}`
-  }, [cuota1, monto1, cuota2, plataforma1Mode, plataforma1Custom, plataforma2Mode, plataforma2Custom])
+  }, [
+    apuesta1,
+    apuesta1Url,
+    apuesta2,
+    apuesta2Url,
+    cuota1,
+    monto1,
+    cuota2,
+    plataforma1Mode,
+    plataforma1Custom,
+    plataforma2Mode,
+    plataforma2Custom,
+  ])
 
   useEffect(() => {
     const nextUrl = new URL(shareUrl)
@@ -523,23 +592,37 @@ export default function SureBetCalculator() {
               <div className="grid gap-3 md:grid-cols-2">
                 <BetBlock
                   cuota={cuota1}
+                  betName={apuesta1}
+                  betUrl={apuesta1Url}
                   customPlatform={plataforma1Custom}
+                  betNameId="apuesta1"
+                  betNameLabel="Nombre de la apuesta"
+                  betUrlId="apuesta1Url"
                   platformMode={plataforma1Mode}
                   platformTitle="Plataforma 1"
                   quoteId="cuota1"
                   quoteLabel="Cuota 1"
                   onCustomPlatformChange={setPlataforma1Custom}
+                  onBetNameChange={setApuesta1}
+                  onBetUrlChange={setApuesta1Url}
                   onPlatformModeChange={setPlataforma1Mode}
                   onQuoteChange={setCuota1}
                 />
                 <BetBlock
                   cuota={cuota2}
+                  betName={apuesta2}
+                  betUrl={apuesta2Url}
                   customPlatform={plataforma2Custom}
+                  betNameId="apuesta2"
+                  betNameLabel="Nombre de la apuesta"
+                  betUrlId="apuesta2Url"
                   platformMode={plataforma2Mode}
                   platformTitle="Plataforma 2"
                   quoteId="cuota2"
                   quoteLabel="Cuota 2"
                   onCustomPlatformChange={setPlataforma2Custom}
+                  onBetNameChange={setApuesta2}
+                  onBetUrlChange={setApuesta2Url}
                   onPlatformModeChange={setPlataforma2Mode}
                   onQuoteChange={setCuota2}
                 />
@@ -560,8 +643,20 @@ export default function SureBetCalculator() {
             </CardHeader>
             <CardContent className="space-y-3 px-3 sm:px-4">
               <div className="grid grid-cols-2 gap-2">
-                <PlatformStat mode={plataforma1Mode} odds={calculated.odds1} />
-                <PlatformStat mode={plataforma2Mode} odds={calculated.odds2} />
+                <PlatformStat
+                  betName={apuesta1}
+                  betUrl={apuesta1Url}
+                  label="Cuota 1"
+                  mode={plataforma1Mode}
+                  odds={calculated.odds1}
+                />
+                <PlatformStat
+                  betName={apuesta2}
+                  betUrl={apuesta2Url}
+                  label="Cuota 2"
+                  mode={plataforma2Mode}
+                  odds={calculated.odds2}
+                />
                 <Metric label="Monto 1" value={formatMoney(calculated.stake1)} />
                 <Metric
                   label="Estado"
@@ -601,28 +696,52 @@ export default function SureBetCalculator() {
 
 function BetBlock({
   cuota,
+  betName,
+  betUrl,
   customPlatform,
+  betNameId,
+  betNameLabel,
+  betUrlId,
   platformMode,
   platformTitle,
   quoteId,
   quoteLabel,
   onCustomPlatformChange,
+  onBetNameChange,
+  onBetUrlChange,
   onPlatformModeChange,
   onQuoteChange,
 }: {
   cuota: string
+  betName: string
+  betUrl: string
   customPlatform: string
+  betNameId: string
+  betNameLabel: string
+  betUrlId: string
   platformMode: PlatformMode
   platformTitle: string
   quoteId: string
   quoteLabel: string
   onCustomPlatformChange: (value: string) => void
+  onBetNameChange: (value: string) => void
+  onBetUrlChange: (value: string) => void
   onPlatformModeChange: (value: PlatformMode) => void
   onQuoteChange: (value: string) => void
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="space-y-2">
+        <div className="space-y-1.5">
+          <Label htmlFor={betNameId}>{betNameLabel}</Label>
+          <Input
+            id={betNameId}
+            placeholder="Ej: Gana local"
+            value={betName}
+            onChange={(event) => onBetNameChange(event.target.value)}
+          />
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor={quoteId}>{quoteLabel}</Label>
           <Input
@@ -633,6 +752,17 @@ function BetBlock({
             type="number"
             value={cuota}
             onChange={(event) => onQuoteChange(event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor={betUrlId}>URL de la apuesta</Label>
+          <Input
+            id={betUrlId}
+            placeholder="https://..."
+            type="url"
+            value={betUrl}
+            onChange={(event) => onBetUrlChange(event.target.value)}
           />
         </div>
 
