@@ -54,7 +54,23 @@ const decimalFormatter = new Intl.NumberFormat("es-AR", {
 })
 
 function parsePositiveNumber(value: string) {
-  const normalizedValue = value.replace(",", ".")
+  const compactValue = value.trim().replace(/\s+/g, "")
+
+  if (!compactValue) {
+    return 0
+  }
+
+  const lastCommaIndex = compactValue.lastIndexOf(",")
+  const lastDotIndex = compactValue.lastIndexOf(".")
+  const decimalSeparatorIndex = Math.max(lastCommaIndex, lastDotIndex)
+
+  const normalizedValue =
+    decimalSeparatorIndex >= 0
+      ? `${compactValue.slice(0, decimalSeparatorIndex).replace(/[.,]/g, "")}.${compactValue
+          .slice(decimalSeparatorIndex + 1)
+          .replace(/[.,]/g, "")}`
+      : compactValue.replace(/[.,]/g, "")
+
   const parsedValue = Number(normalizedValue)
 
   return Number.isFinite(parsedValue) ? parsedValue : 0
@@ -581,9 +597,7 @@ export default function SureBetCalculator() {
                 <Input
                   id="monto1"
                   inputMode="decimal"
-                  min="0"
-                  step="100"
-                  type="number"
+                  type="text"
                   value={monto1}
                   onChange={(event) => setMonto1(event.target.value)}
                 />
@@ -747,9 +761,7 @@ function BetBlock({
           <Input
             id={quoteId}
             inputMode="decimal"
-            min="1.01"
-            step="0.01"
-            type="number"
+            type="text"
             value={cuota}
             onChange={(event) => onQuoteChange(event.target.value)}
           />
