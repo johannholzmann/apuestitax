@@ -415,13 +415,15 @@ function PlatformBadge({
 
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1 text-[0.72rem] font-medium leading-none ${theme.pillClassName} ${
-        compact ? "whitespace-nowrap" : ""
+      className={`inline-flex max-w-full items-center rounded-full px-2 py-1 text-[0.72rem] font-medium leading-none ${theme.pillClassName} ${
+        compact ? "gap-1.5" : "gap-2"
       }`}
       title={custom || mode}
     >
       <PlatformMark className="h-3.5 w-auto shrink-0" mode={mode} />
-      <span className={`shrink-0 ${theme.oddsClassName}`}>{formatOdds(odds)}</span>
+      <span className={`min-w-0 tabular-nums [overflow-wrap:anywhere] ${theme.oddsClassName}`}>
+        {formatOdds(odds)}
+      </span>
     </span>
   )
 }
@@ -444,18 +446,20 @@ function PlatformStat({
   const cleanBetUrl = betUrl.trim()
 
   return (
-    <div className="min-w-0 rounded-md bg-slate-100 px-2 py-1.5">
+    <div className="min-w-0 rounded-md bg-slate-100 px-3 py-2">
       <div
-        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[0.64rem] font-medium ${theme.pillClassName}`}
+        className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-1 text-[0.64rem] font-medium ${theme.pillClassName}`}
       >
         <PlatformMark className="h-3 w-auto shrink-0" mode={mode} />
       </div>
-      <p className="mt-1 text-[0.64rem] uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="text-sm font-semibold leading-tight text-slate-950">
+      <p className="mt-1.5 text-[0.64rem] uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="min-w-0 text-sm font-semibold leading-tight text-slate-950 [overflow-wrap:anywhere]">
         {cleanBetName || "Sin nombre"}
       </p>
       <div className="mt-1 flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold leading-tight text-slate-950">{formatOdds(odds)}</p>
+        <p className="min-w-0 text-sm font-semibold leading-tight text-slate-950 tabular-nums [overflow-wrap:anywhere]">
+          {formatOdds(odds)}
+        </p>
         {cleanBetUrl ? (
           <button
             className="inline-flex shrink-0 items-center gap-1 rounded-md bg-sky-600 px-2.5 py-1 text-[0.72rem] font-semibold text-white shadow-sm transition hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
@@ -598,7 +602,7 @@ export default function SureBetCalculator() {
 
   return (
     <main className="min-h-screen bg-[#f6f7f2] px-3 py-4 text-slate-950 sm:px-5 sm:py-6">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
         <header className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -674,7 +678,7 @@ export default function SureBetCalculator() {
           </CardContent>
         </Card>
 
-        <section className="grid gap-3 lg:grid-cols-[0.95fr_2.05fr]">
+        <section className="flex flex-col gap-3">
           <Card className="rounded-lg border-slate-200 bg-white py-3 shadow-sm">
             <CardHeader className="px-3 pb-2 sm:px-4">
               <div className="flex items-center justify-between gap-3">
@@ -685,7 +689,7 @@ export default function SureBetCalculator() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3 px-3 sm:px-4">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))]">
                 {calculated.bets.map((bet) => (
                   <PlatformStat
                     key={bet.index}
@@ -716,7 +720,7 @@ export default function SureBetCalculator() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr))]">
             {calculated.strategies.map((strategy) => (
               <StrategyCard key={strategy.id} bets={calculated.bets} strategy={strategy} />
             ))}
@@ -839,17 +843,25 @@ function Metric({
       <p className={`text-[0.64rem] uppercase tracking-wide text-slate-500 ${labelClassName}`}>
         {label}
       </p>
-      <p className={`text-sm font-semibold leading-tight ${valueClassName}`}>{value}</p>
+      <p
+        className={`min-w-0 text-sm font-semibold leading-tight tabular-nums [overflow-wrap:anywhere] ${valueClassName}`}
+      >
+        {value}
+      </p>
     </div>
   )
 }
 
 function StrategyCard({ bets, strategy }: { bets: CalculatedBet[]; strategy: Strategy }) {
   return (
-    <Card className={`rounded-lg border-l-4 bg-white py-3 shadow-sm ${strategy.accentClassName}`}>
+    <Card
+      className={`min-w-0 rounded-lg border-l-4 bg-white py-3 shadow-sm ${strategy.accentClassName}`}
+    >
       <CardHeader className="px-3 pb-2 sm:px-4">
-        <CardTitle className="text-base font-semibold leading-tight">{strategy.title}</CardTitle>
-        <p className="text-xs leading-snug text-slate-500">{strategy.description}</p>
+        <CardTitle className="min-w-0 text-base font-semibold leading-tight [overflow-wrap:anywhere]">
+          {strategy.title}
+        </CardTitle>
+        <p className="max-w-prose text-xs leading-snug text-slate-500">{strategy.description}</p>
       </CardHeader>
       <CardContent className="space-y-2 px-3 sm:px-4">
         <div className="flex flex-wrap gap-1.5">
@@ -863,7 +875,7 @@ function StrategyCard({ bets, strategy }: { bets: CalculatedBet[]; strategy: Str
             />
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(8.75rem,1fr))]">
           {strategy.stakes.map((stake, index) => (
             <StrategyMetric
               key={`stake-${index}`}
@@ -900,11 +912,13 @@ function StrategyMetric({
 }) {
   return (
     <div className="min-w-0 rounded-md bg-slate-100 px-2 py-1.5">
-      <p className="text-[0.64rem] font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="min-w-0 text-[0.64rem] font-medium uppercase tracking-wide text-slate-500 [overflow-wrap:anywhere]">
+        {label}
+      </p>
       <p
-        className={`break-words ${
-          isStrong ? "text-sm sm:text-base" : "text-[0.82rem] sm:text-sm"
-        } font-semibold leading-tight ${valueClassName}`}
+        className={`min-w-0 ${
+          isStrong ? "text-sm" : "text-[0.82rem] sm:text-sm"
+        } font-semibold leading-tight tabular-nums [overflow-wrap:anywhere] ${valueClassName}`}
       >
         {value}
       </p>
