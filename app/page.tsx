@@ -2,20 +2,34 @@
 
 import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
-import { Check, Copy, ExternalLink } from "lucide-react"
+import { Check, Copy, ExternalLink, Minus, Plus } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+type BetForm = {
+  cuota: string
+  monto?: string
+  apuesta: string
+  apuestaUrl: string
+  plataformaMode: PlatformMode
+  plataformaCustom: string
+}
+
+type CalculatedBet = BetForm & {
+  index: number
+  odds: number
+  stake: number
+}
+
 type Strategy = {
   id: string
   title: string
   description: string
-  stake2: number
-  profitIfBet1Wins: number
-  profitIfBet2Wins: number
+  stakes: number[]
+  profits: number[]
   totalInvestment: number
   accentClassName: string
 }
@@ -29,17 +43,33 @@ const PLATFORM_OPTIONS: { label: string; value: PlatformMode }[] = [
   { label: "Otra", value: "otra" },
 ]
 
-const DEFAULT_VALUES = {
-  cuota1: "2.75",
-  monto1: "10000",
-  cuota2: "1.86",
-  plataforma1: "bet365",
-  plataforma2: "betano",
-  apuesta1: "",
-  apuesta1Url: "",
-  apuesta2: "",
-  apuesta2Url: "",
+const DEFAULT_BETS: BetForm[] = [
+  {
+    cuota: "2.75",
+    monto: "10000",
+    plataformaMode: "bet365",
+    plataformaCustom: "",
+    apuesta: "",
+    apuestaUrl: "",
+  },
+  {
+    cuota: "1.86",
+    plataformaMode: "betano",
+    plataformaCustom: "",
+    apuesta: "",
+    apuestaUrl: "",
+  },
+]
+
+const EMPTY_THIRD_BET: BetForm = {
+  cuota: "",
+  plataformaMode: "otra",
+  plataformaCustom: "",
+  apuesta: "",
+  apuestaUrl: "",
 }
+
+const STRATEGY_ACCENTS = ["border-l-sky-500", "border-l-emerald-500", "border-l-rose-500"]
 
 const moneyFormatter = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -49,6 +79,12 @@ const moneyFormatter = new Intl.NumberFormat("es-AR", {
 })
 
 const decimalFormatter = new Intl.NumberFormat("es-AR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+const percentFormatter = new Intl.NumberFormat("es-AR", {
+  style: "percent",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
@@ -116,48 +152,36 @@ function parsePlatformValue(
   }
 }
 
-function getInitialFormState() {
+function getDefaultBets() {
+  return DEFAULT_BETS.map((bet) => ({ ...bet }))
+}
+
+function readBetsFromUrl() {
   if (typeof window === "undefined") {
-    return {
-      cuota1: DEFAULT_VALUES.cuota1,
-      monto1: DEFAULT_VALUES.monto1,
-      cuota2: DEFAULT_VALUES.cuota2,
-      apuesta1: DEFAULT_VALUES.apuesta1,
-      apuesta1Url: DEFAULT_VALUES.apuesta1Url,
-      apuesta2: DEFAULT_VALUES.apuesta2,
-      apuesta2Url: DEFAULT_VALUES.apuesta2Url,
-      plataforma1Mode: DEFAULT_VALUES.plataforma1 as PlatformMode,
-      plataforma1Custom: "",
-      plataforma2Mode: DEFAULT_VALUES.plataforma2 as PlatformMode,
-      plataforma2Custom: "",
-    }
+    return getDefaultBets()
   }
 
   const params = new URLSearchParams(window.location.search)
-  const platform1 = parsePlatformValue(
-    params.get("plataforma1"),
-    params.get("plataforma1Custom"),
-    DEFAULT_VALUES.plataforma1 as PlatformMode
-  )
-  const platform2 = parsePlatformValue(
-    params.get("plataforma2"),
-    params.get("plataforma2Custom"),
-    DEFAULT_VALUES.plataforma2 as PlatformMode
-  )
+  const count = params.get("bets") === "3" ? 3 : 2
 
-  return {
-    cuota1: toInputValue(params.get("cuota1"), DEFAULT_VALUES.cuota1),
-    monto1: toInputValue(params.get("monto1"), DEFAULT_VALUES.monto1),
-    cuota2: toInputValue(params.get("cuota2"), DEFAULT_VALUES.cuota2),
-    apuesta1: toOptionalInputValue(params.get("apuesta1")),
-    apuesta1Url: toOptionalInputValue(params.get("apuesta1Url")),
-    apuesta2: toOptionalInputValue(params.get("apuesta2")),
-    apuesta2Url: toOptionalInputValue(params.get("apuesta2Url")),
-    plataforma1Mode: platform1.mode,
-    plataforma1Custom: platform1.custom,
-    plataforma2Mode: platform2.mode,
-    plataforma2Custom: platform2.custom,
-  }
+  return Array.from({ length: count }, (_, index) => {
+    const betNumber = index + 1
+    const defaults = DEFAULT_BETS[index] ?? EMPTY_THIRD_BET
+    const platform = parsePlatformValue(
+      params.get(`plataforma${betNumber}`),
+      params.get(`plataforma${betNumber}Custom`),
+      defaults.plataformaMode
+    )
+
+    return {
+      cuota: toInputValue(params.get(`cuota${betNumber}`), defaults.cuota),
+      monto: index === 0 ? toInputValue(params.get("monto1"), defaults.monto ?? "10000") : undefined,
+      apuesta: toOptionalInputValue(params.get(`apuesta${betNumber}`)),
+      apuestaUrl: toOptionalInputValue(params.get(`apuesta${betNumber}Url`)),
+      plataformaMode: platform.mode,
+      plataformaCustom: platform.custom,
+    }
+  })
 }
 
 function formatMoney(value: number) {
@@ -176,6 +200,14 @@ function formatOdds(value: number) {
   return decimalFormatter.format(value)
 }
 
+function formatPercent(value: number) {
+  if (!Number.isFinite(value)) {
+    return percentFormatter.format(0)
+  }
+
+  return percentFormatter.format(value)
+}
+
 function getProfitClassName(value: number) {
   if (value > 0) {
     return "text-emerald-700"
@@ -188,29 +220,77 @@ function getProfitClassName(value: number) {
   return "text-slate-800"
 }
 
-function buildStrategy(
-  id: string,
-  title: string,
-  description: string,
-  stake1: number,
-  odds1: number,
-  odds2: number,
-  stake2: number,
-  accentClassName: string
-): Strategy {
-  const safeStake2 = Number.isFinite(stake2) && stake2 > 0 ? stake2 : 0
-  const profitIfBet1Wins = stake1 * (odds1 - 1) - safeStake2
-  const profitIfBet2Wins = safeStake2 * (odds2 - 1) - stake1
+function getStrategyProfits(stakes: number[], odds: number[]) {
+  const totalInvestment = stakes.reduce((total, stake) => total + stake, 0)
+  const profits = stakes.map((stake, index) => stake * odds[index] - totalInvestment)
 
   return {
-    id,
-    title,
-    description,
-    stake2: safeStake2,
-    profitIfBet1Wins,
-    profitIfBet2Wins,
-    totalInvestment: stake1 + safeStake2,
-    accentClassName,
+    totalInvestment,
+    profits,
+  }
+}
+
+function getBalancedStrategy(bets: CalculatedBet[]): Strategy {
+  const targetReturn = bets[0].stake * bets[0].odds
+  const stakes = bets.map((bet, index) => (index === 0 ? bet.stake : targetReturn / bet.odds))
+  const { profits, totalInvestment } = getStrategyProfits(
+    stakes,
+    bets.map((bet) => bet.odds)
+  )
+
+  return {
+    id: "balanced",
+    title: "Ganancia minima asegurada",
+    description: "Iguala el retorno para que todos los resultados paguen parejo.",
+    stakes,
+    profits,
+    totalInvestment,
+    accentClassName: "border-l-amber-500",
+  }
+}
+
+function getFavorStrategy(bets: CalculatedBet[], favoredIndex: number): Strategy {
+  const odds = bets.map((bet) => bet.odds)
+  const stakes = Array.from({ length: bets.length }, () => 0)
+
+  if (favoredIndex === 0) {
+    const nonFavoredInverseTotal = odds.reduce(
+      (total, odd, index) => (index === favoredIndex ? total : total + 1 / odd),
+      0
+    )
+    const targetBreakEvenReturn = bets[0].stake / (1 - nonFavoredInverseTotal)
+
+    stakes[0] = bets[0].stake
+    odds.forEach((odd, index) => {
+      if (index !== favoredIndex) {
+        stakes[index] = targetBreakEvenReturn / odd
+      }
+    })
+  } else {
+    const targetBreakEvenReturn = bets[0].stake * bets[0].odds
+
+    odds.forEach((odd, index) => {
+      if (index !== favoredIndex) {
+        stakes[index] = targetBreakEvenReturn / odd
+      }
+    })
+
+    stakes[favoredIndex] = Math.max(
+      targetBreakEvenReturn - stakes.reduce((total, stake) => total + stake, 0),
+      0
+    )
+  }
+
+  const { profits, totalInvestment } = getStrategyProfits(stakes, odds)
+
+  return {
+    id: `favor-bet-${favoredIndex + 1}`,
+    title: `Favorece apuesta ${favoredIndex + 1}`,
+    description: "Busca no perder en las otras salidas y dejar mas ganancia en esta.",
+    stakes,
+    profits,
+    totalInvestment,
+    accentClassName: STRATEGY_ACCENTS[favoredIndex] ?? "border-l-slate-500",
   }
 }
 
@@ -332,7 +412,6 @@ function PlatformBadge({
   compact?: boolean
 }) {
   const theme = getPlatformTheme(mode)
-  // const label = getPlatformLabel(mode, custom)
 
   return (
     <span
@@ -342,7 +421,6 @@ function PlatformBadge({
       title={custom || mode}
     >
       <PlatformMark className="h-3.5 w-auto shrink-0" mode={mode} />
-      {/* <span className={`max-w-full truncate font-semibold ${theme.labelClassName}`}>{label}</span> */}
       <span className={`shrink-0 ${theme.oddsClassName}`}>{formatOdds(odds)}</span>
     </span>
   )
@@ -367,7 +445,9 @@ function PlatformStat({
 
   return (
     <div className="min-w-0 rounded-md bg-slate-100 px-2 py-1.5">
-      <div className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[0.64rem] font-medium ${theme.pillClassName}`}>
+      <div
+        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[0.64rem] font-medium ${theme.pillClassName}`}
+      >
         <PlatformMark className="h-3 w-auto shrink-0" mode={mode} />
       </div>
       <p className="mt-1 text-[0.64rem] uppercase tracking-wide text-slate-500">{label}</p>
@@ -383,7 +463,7 @@ function PlatformStat({
             onClick={() => window.open(cleanBetUrl, "_blank", "noreferrer")}
           >
             <ExternalLink className="size-3.5" />
-            Abrir apuesta
+            Abrir
           </button>
         ) : null}
       </div>
@@ -392,143 +472,105 @@ function PlatformStat({
 }
 
 export default function SureBetCalculator() {
-  const initialFormState = getInitialFormState()
-  const [cuota1, setCuota1] = useState(initialFormState.cuota1)
-  const [monto1, setMonto1] = useState(initialFormState.monto1)
-  const [cuota2, setCuota2] = useState(initialFormState.cuota2)
-  const [apuesta1, setApuesta1] = useState(initialFormState.apuesta1)
-  const [apuesta1Url, setApuesta1Url] = useState(initialFormState.apuesta1Url)
-  const [apuesta2, setApuesta2] = useState(initialFormState.apuesta2)
-  const [apuesta2Url, setApuesta2Url] = useState(initialFormState.apuesta2Url)
-  const [plataforma1Mode, setPlataforma1Mode] = useState<PlatformMode>(
-    initialFormState.plataforma1Mode
-  )
-  const [plataforma1Custom, setPlataforma1Custom] = useState(initialFormState.plataforma1Custom)
-  const [plataforma2Mode, setPlataforma2Mode] = useState<PlatformMode>(
-    initialFormState.plataforma2Mode
-  )
-  const [plataforma2Custom, setPlataforma2Custom] = useState(initialFormState.plataforma2Custom)
+  const [bets, setBets] = useState<BetForm[]>(getDefaultBets)
+  const [isInitialized, setIsInitialized] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const calculated = useMemo(() => {
-    const odds1 = parsePositiveNumber(cuota1)
-    const stake1 = parsePositiveNumber(monto1)
-    const odds2 = parsePositiveNumber(cuota2)
-    const isValid = odds1 > 1 && odds2 > 1 && stake1 > 0
-    const isSureBet = isValid && 1 / odds1 + 1 / odds2 < 1
-
-    if (!isValid) {
-      return {
-        odds1,
-        stake1,
-        odds2,
-        isValid,
-        isSureBet,
-        balancedMinimumProfit: 0,
-        strategies: [] as Strategy[],
-      }
-    }
-
-    const strategies = [
-      buildStrategy(
-        "favor-bet-1",
-        "Favorece cuota 1",
-        "Cubre cuota 2 y deja más ganancia si sale cuota 1.",
-        stake1,
-        odds1,
-        odds2,
-        stake1 / (odds2 - 1),
-        "border-l-sky-500"
-      ),
-      buildStrategy(
-        "favor-bet-2",
-        "Favorece cuota 2",
-        "Cubre cuota 1 y deja más ganancia si sale cuota 2.",
-        stake1,
-        odds1,
-        odds2,
-        stake1 * (odds1 - 1),
-        "border-l-emerald-500"
-      ),
-      buildStrategy(
-        "balanced",
-        "Ganancia mínima asegurada",
-        "Iguala el retorno para que ambos resultados paguen parejo.",
-        stake1,
-        odds1,
-        odds2,
-        (stake1 * odds1) / odds2,
-        "border-l-amber-500"
-      ),
-    ]
+    const parsedBets = bets.map((bet, index) => ({
+      ...bet,
+      index,
+      odds: parsePositiveNumber(bet.cuota),
+      stake: index === 0 ? parsePositiveNumber(bet.monto ?? "") : 0,
+    }))
+    const isValid = parsedBets.every((bet) => bet.odds > 1) && parsedBets[0].stake > 0
+    const impliedTotal = parsedBets.reduce((total, bet) => total + (bet.odds > 0 ? 1 / bet.odds : 0), 0)
+    const isSureBet = isValid && impliedTotal < 1
+    const strategies = isSureBet
+      ? [
+          ...parsedBets.map((_, index) => getFavorStrategy(parsedBets, index)),
+          getBalancedStrategy(parsedBets),
+        ]
+      : []
+    const balancedStrategy = isSureBet ? strategies[strategies.length - 1] : null
 
     return {
-      odds1,
-      stake1,
-      odds2,
+      bets: parsedBets,
+      impliedTotal,
       isValid,
       isSureBet,
-      balancedMinimumProfit: strategies[2].profitIfBet1Wins,
+      balancedMinimumProfit: balancedStrategy ? Math.min(...balancedStrategy.profits) : 0,
       strategies,
     }
-  }, [cuota1, monto1, cuota2])
+  }, [bets])
 
   const shareUrl = useMemo(() => {
     const params = new URLSearchParams({
-      cuota1: cuota1.trim() || DEFAULT_VALUES.cuota1,
-      monto1: monto1.trim() || DEFAULT_VALUES.monto1,
-      cuota2: cuota2.trim() || DEFAULT_VALUES.cuota2,
-      plataforma1: plataforma1Mode,
-      plataforma2: plataforma2Mode,
+      bets: String(bets.length),
     })
 
-    if (apuesta1.trim()) {
-      params.set("apuesta1", apuesta1.trim())
-    }
+    bets.forEach((bet, index) => {
+      const betNumber = index + 1
+      const defaults = DEFAULT_BETS[index] ?? EMPTY_THIRD_BET
 
-    if (apuesta1Url.trim()) {
-      params.set("apuesta1Url", apuesta1Url.trim())
-    }
+      params.set(`cuota${betNumber}`, bet.cuota.trim() || defaults.cuota)
+      params.set(`plataforma${betNumber}`, bet.plataformaMode)
 
-    if (apuesta2.trim()) {
-      params.set("apuesta2", apuesta2.trim())
-    }
+      if (index === 0) {
+        params.set("monto1", bet.monto?.trim() || defaults.monto || "10000")
+      }
 
-    if (apuesta2Url.trim()) {
-      params.set("apuesta2Url", apuesta2Url.trim())
-    }
+      if (bet.apuesta.trim()) {
+        params.set(`apuesta${betNumber}`, bet.apuesta.trim())
+      }
 
-    if (plataforma1Mode === "otra" && plataforma1Custom.trim()) {
-      params.set("plataforma1Custom", plataforma1Custom.trim())
-    }
+      if (bet.apuestaUrl.trim()) {
+        params.set(`apuesta${betNumber}Url`, bet.apuestaUrl.trim())
+      }
 
-    if (plataforma2Mode === "otra" && plataforma2Custom.trim()) {
-      params.set("plataforma2Custom", plataforma2Custom.trim())
-    }
+      if (bet.plataformaMode === "otra" && bet.plataformaCustom.trim()) {
+        params.set(`plataforma${betNumber}Custom`, bet.plataformaCustom.trim())
+      }
+    })
 
     if (typeof window === "undefined") {
       return `/?${params.toString()}`
     }
 
     return `${window.location.origin}${window.location.pathname}?${params.toString()}`
-  }, [
-    apuesta1,
-    apuesta1Url,
-    apuesta2,
-    apuesta2Url,
-    cuota1,
-    monto1,
-    cuota2,
-    plataforma1Mode,
-    plataforma1Custom,
-    plataforma2Mode,
-    plataforma2Custom,
-  ])
+  }, [bets])
 
   useEffect(() => {
+    queueMicrotask(() => {
+      setBets(readBetsFromUrl())
+      setIsInitialized(true)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return
+    }
+
     const nextUrl = new URL(shareUrl)
     window.history.replaceState(null, "", `${nextUrl.pathname}${nextUrl.search}`)
-  }, [shareUrl])
+  }, [isInitialized, shareUrl])
+
+  function updateBet(index: number, nextBet: Partial<BetForm>) {
+    setBets((currentBets) =>
+      currentBets.map((bet, betIndex) => (betIndex === index ? { ...bet, ...nextBet } : bet))
+    )
+  }
+
+  function addThirdBet() {
+    setBets((currentBets) =>
+      currentBets.length >= 3 ? currentBets : [...currentBets, { ...EMPTY_THIRD_BET }]
+    )
+  }
+
+  function removeThirdBet() {
+    setBets((currentBets) => currentBets.slice(0, 2))
+  }
 
   async function copyShareUrl() {
     let didCopy = false
@@ -598,48 +640,35 @@ export default function SureBetCalculator() {
                   id="monto1"
                   inputMode="decimal"
                   type="text"
-                  value={monto1}
-                  onChange={(event) => setMonto1(event.target.value)}
+                  value={bets[0].monto ?? ""}
+                  onChange={(event) => updateBet(0, { monto: event.target.value })}
                 />
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <BetBlock
-                  cuota={cuota1}
-                  betName={apuesta1}
-                  betUrl={apuesta1Url}
-                  customPlatform={plataforma1Custom}
-                  betNameId="apuesta1"
-                  betNameLabel="Nombre de la apuesta"
-                  betUrlId="apuesta1Url"
-                  platformMode={plataforma1Mode}
-                  platformTitle="Plataforma 1"
-                  quoteId="cuota1"
-                  quoteLabel="Cuota 1"
-                  onCustomPlatformChange={setPlataforma1Custom}
-                  onBetNameChange={setApuesta1}
-                  onBetUrlChange={setApuesta1Url}
-                  onPlatformModeChange={setPlataforma1Mode}
-                  onQuoteChange={setCuota1}
-                />
-                <BetBlock
-                  cuota={cuota2}
-                  betName={apuesta2}
-                  betUrl={apuesta2Url}
-                  customPlatform={plataforma2Custom}
-                  betNameId="apuesta2"
-                  betNameLabel="Nombre de la apuesta"
-                  betUrlId="apuesta2Url"
-                  platformMode={plataforma2Mode}
-                  platformTitle="Plataforma 2"
-                  quoteId="cuota2"
-                  quoteLabel="Cuota 2"
-                  onCustomPlatformChange={setPlataforma2Custom}
-                  onBetNameChange={setApuesta2}
-                  onBetUrlChange={setApuesta2Url}
-                  onPlatformModeChange={setPlataforma2Mode}
-                  onQuoteChange={setCuota2}
-                />
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {bets.map((bet, index) => (
+                  <BetBlock
+                    key={index}
+                    bet={bet}
+                    index={index}
+                    canRemove={index === 2}
+                    onBetChange={(nextBet) => updateBet(index, nextBet)}
+                    onRemove={removeThirdBet}
+                  />
+                ))}
+              </div>
+
+              <div className="flex justify-end">
+                {bets.length < 3 ? (
+                  <button
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 shadow-sm transition hover:bg-slate-50"
+                    type="button"
+                    onClick={addThirdBet}
+                  >
+                    <Plus className="size-4" />
+                    Agregar apuesta 3
+                  </button>
+                ) : null}
               </div>
             </div>
           </CardContent>
@@ -651,55 +680,45 @@ export default function SureBetCalculator() {
               <div className="flex items-center justify-between gap-3">
                 <CardTitle className="text-base font-semibold">Resumen</CardTitle>
                 <Badge variant={calculated.isSureBet ? "success" : "destructive"}>
-                  {calculated.isSureBet ? "Sí" : "No"}
+                  {calculated.isSureBet ? "Si" : "No"}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-3 px-3 sm:px-4">
               <div className="grid grid-cols-2 gap-2">
-                <PlatformStat
-                  betName={apuesta1}
-                  betUrl={apuesta1Url}
-                  label="Cuota 1"
-                  mode={plataforma1Mode}
-                  odds={calculated.odds1}
-                />
-                <PlatformStat
-                  betName={apuesta2}
-                  betUrl={apuesta2Url}
-                  label="Cuota 2"
-                  mode={plataforma2Mode}
-                  odds={calculated.odds2}
-                />
-                <Metric label="Monto 1" value={formatMoney(calculated.stake1)} />
-                <Metric
-                  label="Estado"
-                  value={calculated.isSureBet ? "Asegurada" : "Normal"}
-                  valueClassName={calculated.isSureBet ? "text-emerald-700" : "text-slate-800"}
-                />
+                {calculated.bets.map((bet) => (
+                  <PlatformStat
+                    key={bet.index}
+                    betName={bet.apuesta}
+                    betUrl={bet.apuestaUrl}
+                    label={`Apuesta ${bet.index + 1}`}
+                    mode={bet.plataformaMode}
+                    odds={bet.odds}
+                  />
+                ))}
+                <Metric label="Monto 1" value={formatMoney(calculated.bets[0].stake)} />
+                <Metric label="Prob. implicita" value={formatPercent(calculated.impliedTotal)} />
+                {calculated.isSureBet ? (
+                  <Metric
+                    label="Ganancia minima"
+                    value={formatMoney(calculated.balancedMinimumProfit)}
+                    valueClassName={getProfitClassName(calculated.balancedMinimumProfit)}
+                  />
+                ) : null}
               </div>
               <p className="text-sm leading-snug text-slate-600">
                 {calculated.isValid
                   ? calculated.isSureBet
                     ? "Estas cuotas forman una sure bet."
-                    : "Estas cuotas no forman una sure bet, pero podés comparar los escenarios."
-                  : "Ingresá cuotas mayores a 1 y un monto positivo."}
+                    : "Estas cuotas no forman una sure bet, por eso se ocultan las estrategias."
+                  : "Ingresa cuotas mayores a 1 y un monto positivo."}
               </p>
             </CardContent>
           </Card>
 
-          <div className="grid gap-3 md:grid-cols-3">
-            {(calculated.isValid ? calculated.strategies : getEmptyStrategies()).map((strategy) => (
-              <StrategyCard
-                key={strategy.id}
-                odds1={calculated.odds1}
-                odds2={calculated.odds2}
-                platform1Mode={plataforma1Mode}
-                platform1Custom={plataforma1Custom}
-                platform2Mode={plataforma2Mode}
-                platform2Custom={plataforma2Custom}
-                strategy={strategy}
-              />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {calculated.strategies.map((strategy) => (
+              <StrategyCard key={strategy.id} bets={calculated.bets} strategy={strategy} />
             ))}
           </div>
         </section>
@@ -709,82 +728,76 @@ export default function SureBetCalculator() {
 }
 
 function BetBlock({
-  cuota,
-  betName,
-  betUrl,
-  customPlatform,
-  betNameId,
-  betNameLabel,
-  betUrlId,
-  platformMode,
-  platformTitle,
-  quoteId,
-  quoteLabel,
-  onCustomPlatformChange,
-  onBetNameChange,
-  onBetUrlChange,
-  onPlatformModeChange,
-  onQuoteChange,
+  bet,
+  index,
+  canRemove,
+  onBetChange,
+  onRemove,
 }: {
-  cuota: string
-  betName: string
-  betUrl: string
-  customPlatform: string
-  betNameId: string
-  betNameLabel: string
-  betUrlId: string
-  platformMode: PlatformMode
-  platformTitle: string
-  quoteId: string
-  quoteLabel: string
-  onCustomPlatformChange: (value: string) => void
-  onBetNameChange: (value: string) => void
-  onBetUrlChange: (value: string) => void
-  onPlatformModeChange: (value: PlatformMode) => void
-  onQuoteChange: (value: string) => void
+  bet: BetForm
+  index: number
+  canRemove: boolean
+  onBetChange: (value: Partial<BetForm>) => void
+  onRemove: () => void
 }) {
+  const betNumber = index + 1
+
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-900">Apuesta {betNumber}</p>
+        {canRemove ? (
+          <button
+            aria-label="Quitar apuesta 3"
+            className="inline-flex size-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+            type="button"
+            onClick={onRemove}
+          >
+            <Minus className="size-4" />
+          </button>
+        ) : null}
+      </div>
+
       <div className="space-y-2">
         <div className="space-y-1.5">
-          <Label htmlFor={betNameId}>{betNameLabel}</Label>
+          <Label htmlFor={`apuesta${betNumber}`}>Nombre de la apuesta</Label>
           <Input
-            id={betNameId}
+            id={`apuesta${betNumber}`}
             placeholder="Ej: Gana local"
-            value={betName}
-            onChange={(event) => onBetNameChange(event.target.value)}
+            value={bet.apuesta}
+            onChange={(event) => onBetChange({ apuesta: event.target.value })}
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor={quoteId}>{quoteLabel}</Label>
+          <Label htmlFor={`cuota${betNumber}`}>Cuota {betNumber}</Label>
           <Input
-            id={quoteId}
+            id={`cuota${betNumber}`}
             inputMode="decimal"
             type="text"
-            value={cuota}
-            onChange={(event) => onQuoteChange(event.target.value)}
+            value={bet.cuota}
+            onChange={(event) => onBetChange({ cuota: event.target.value })}
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor={betUrlId}>URL de la apuesta</Label>
+          <Label htmlFor={`apuesta${betNumber}Url`}>URL de la apuesta</Label>
           <Input
-            id={betUrlId}
+            id={`apuesta${betNumber}Url`}
             placeholder="https://..."
             type="url"
-            value={betUrl}
-            onChange={(event) => onBetUrlChange(event.target.value)}
+            value={bet.apuestaUrl}
+            onChange={(event) => onBetChange({ apuestaUrl: event.target.value })}
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor={`${quoteId}-platform`}>{platformTitle}</Label>
+          <Label htmlFor={`cuota${betNumber}-platform`}>Plataforma {betNumber}</Label>
           <select
-            id={`${quoteId}-platform`}
+            id={`cuota${betNumber}-platform`}
             className="h-9 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
-            value={platformMode}
-            onChange={(event) => onPlatformModeChange(event.target.value as PlatformMode)}
+            value={bet.plataformaMode}
+            onChange={(event) => onBetChange({ plataformaMode: event.target.value as PlatformMode })}
           >
             {PLATFORM_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -794,14 +807,14 @@ function BetBlock({
           </select>
         </div>
 
-        {platformMode === "otra" ? (
+        {bet.plataformaMode === "otra" ? (
           <div className="space-y-1.5">
-            <Label htmlFor={`${quoteId}-custom`}>Nombre personalizado</Label>
+            <Label htmlFor={`cuota${betNumber}-custom`}>Nombre personalizado</Label>
             <Input
-              id={`${quoteId}-custom`}
-              placeholder="Escribí la plataforma"
-              value={customPlatform}
-              onChange={(event) => onCustomPlatformChange(event.target.value)}
+              id={`cuota${betNumber}-custom`}
+              placeholder="Escribi la plataforma"
+              value={bet.plataformaCustom}
+              onChange={(event) => onBetChange({ plataformaCustom: event.target.value })}
             />
           </div>
         ) : null}
@@ -831,23 +844,7 @@ function Metric({
   )
 }
 
-function StrategyCard({
-  odds1,
-  odds2,
-  platform1Mode,
-  platform1Custom,
-  platform2Mode,
-  platform2Custom,
-  strategy,
-}: {
-  odds1: number
-  odds2: number
-  platform1Mode: PlatformMode
-  platform1Custom: string
-  platform2Mode: PlatformMode
-  platform2Custom: string
-  strategy: Strategy
-}) {
+function StrategyCard({ bets, strategy }: { bets: CalculatedBet[]; strategy: Strategy }) {
   return (
     <Card className={`rounded-lg border-l-4 bg-white py-3 shadow-sm ${strategy.accentClassName}`}>
       <CardHeader className="px-3 pb-2 sm:px-4">
@@ -856,22 +853,34 @@ function StrategyCard({
       </CardHeader>
       <CardContent className="space-y-2 px-3 sm:px-4">
         <div className="flex flex-wrap gap-1.5">
-          <PlatformBadge mode={platform1Mode} custom={platform1Custom} odds={odds1} compact />
-          <PlatformBadge mode={platform2Mode} custom={platform2Custom} odds={odds2} compact />
+          {bets.map((bet) => (
+            <PlatformBadge
+              key={bet.index}
+              mode={bet.plataformaMode}
+              custom={bet.plataformaCustom}
+              odds={bet.odds}
+              compact
+            />
+          ))}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <StrategyMetric label="Apuesta C2" value={formatMoney(strategy.stake2)} isStrong />
-          <StrategyMetric
-            label="Ganancia C1"
-            value={formatMoney(strategy.profitIfBet1Wins)}
-            valueClassName={getProfitClassName(strategy.profitIfBet1Wins)}
-          />
-          <StrategyMetric
-            label="Ganancia C2"
-            value={formatMoney(strategy.profitIfBet2Wins)}
-            valueClassName={getProfitClassName(strategy.profitIfBet2Wins)}
-          />
-          <StrategyMetric label="Inversión" value={formatMoney(strategy.totalInvestment)} />
+          {strategy.stakes.map((stake, index) => (
+            <StrategyMetric
+              key={`stake-${index}`}
+              label={`Apuesta ${index + 1}`}
+              value={formatMoney(stake)}
+              isStrong={index > 0}
+            />
+          ))}
+          {strategy.profits.map((profit, index) => (
+            <StrategyMetric
+              key={`profit-${index}`}
+              label={`Ganancia A${index + 1}`}
+              value={formatMoney(profit)}
+              valueClassName={getProfitClassName(profit)}
+            />
+          ))}
+          <StrategyMetric label="Inversion" value={formatMoney(strategy.totalInvestment)} />
         </div>
       </CardContent>
     </Card>
@@ -901,39 +910,4 @@ function StrategyMetric({
       </p>
     </div>
   )
-}
-
-function getEmptyStrategies(): Strategy[] {
-  return [
-    {
-      id: "favor-bet-1-empty",
-      title: "Favorece cuota 1",
-      description: "Esperando datos válidos.",
-      stake2: 0,
-      profitIfBet1Wins: 0,
-      profitIfBet2Wins: 0,
-      totalInvestment: 0,
-      accentClassName: "border-l-sky-500",
-    },
-    {
-      id: "favor-bet-2-empty",
-      title: "Favorece cuota 2",
-      description: "Esperando datos válidos.",
-      stake2: 0,
-      profitIfBet1Wins: 0,
-      profitIfBet2Wins: 0,
-      totalInvestment: 0,
-      accentClassName: "border-l-emerald-500",
-    },
-    {
-      id: "balanced-empty",
-      title: "Ganancia mínima asegurada",
-      description: "Esperando datos válidos.",
-      stake2: 0,
-      profitIfBet1Wins: 0,
-      profitIfBet2Wins: 0,
-      totalInvestment: 0,
-      accentClassName: "border-l-amber-500",
-    },
-  ]
 }
